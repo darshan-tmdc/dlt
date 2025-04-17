@@ -196,8 +196,9 @@ def register_table(
     fs_client: AbstractFileSystem,
     config: FilesystemConfiguration,
 ) -> IcebergTable:
-    last_metadata_file = get_last_metadata_file(metadata_path, fs_client, config)
-    return catalog.register_table(identifier, last_metadata_file)
+    # last_metadata_file = get_last_metadata_file(metadata_path, fs_client, config)
+    # return catalog.register_table(identifier, last_metadata_file)
+    return catalog.load_table(identifier)
 
 
 def make_location(path: str, config: FilesystemConfiguration) -> str:

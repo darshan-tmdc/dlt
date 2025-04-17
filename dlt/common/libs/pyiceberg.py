@@ -13,7 +13,7 @@ from dlt.common.schema.typing import TWriteDisposition
 from dlt.common.utils import assert_min_pkg_version
 from dlt.common.exceptions import MissingDependencyException
 from dlt.common.storages.configuration import FileSystemCredentials, FilesystemConfiguration
-from dlt.common.configuration.specs import CredentialsConfiguration
+from dlt.common.configuration.specs import CredentialsConfiguration, AwsCredentials, AnyAzureCredentials
 from dlt.common.configuration.specs.mixins import WithPyicebergConfig
 
 from dlt.destinations.impl.filesystem.filesystem import FilesystemClient
@@ -23,6 +23,7 @@ try:
     from pyiceberg.table import Table as IcebergTable
     from pyiceberg.catalog import Catalog as IcebergCatalog
     from pyiceberg.exceptions import NoSuchTableError
+    from pyiceberg.catalog import load_catalog
     import pyarrow as pa
 except ModuleNotFoundError:
     raise MissingDependencyException(
@@ -62,6 +63,45 @@ def write_iceberg_table(
     )
 
 
+def get_rest_catalog(credentials: FileSystemCredentials) -> IcebergCatalog:
+    """Creates and returns a RestCatalog for Iceberg."""
+    # Ensure METASTORE_URL is set in the environment
+    if "METASTORE_URL" not in os.environ:
+        raise Exception("Missing env: METASTORE_URL.")
+
+    # Handle AWS credentials
+    if isinstance(credentials, AwsCredentials):
+        session_credentials = credentials.to_pyiceberg_fileio_config()
+        return load_catalog(
+            name="lakehouse_catalog",
+            **{
+                "uri": os.environ.get("METASTORE_URL"),
+                "s3.access-key-id": session_credentials["s3.access-key-id"],
+                "s3.secret-access-key": session_credentials["s3.secret-access-key"],
+                "s3.session-token": session_credentials.get("s3.session-token", ""),
+                "s3.region": session_credentials.get("s3.region", "us-east-1"),
+                "s3.endpoint": session_credentials.get("s3.endpoint"),
+                "s3.connect-timeout": session_credentials.get("s3.connect-timeout", 300),
+            }
+        )
+    elif isinstance(credentials, AnyAzureCredentials):
+        session_credentials = credentials.to_pyiceberg_fileio_config()
+        return load_catalog(
+            name="lakehouse_catalog",
+            **{
+                "uri": os.environ.get("METASTORE_URL"),
+                "py-io-impl": "pyiceberg.io.fsspec.FsspecFileIO",
+                "adls.connection-string": session_credentials["adls.connection-string"],
+                "adls.account-name": session_credentials["adlfs.account-name"],
+                "adls.account-key": session_credentials["adls.account-key"]
+            }
+        )
+
+    # Additional support for other providers (GCS)
+    else:
+        raise ValueError("Unsupported or unknown credentials type.")
+
+
 def get_sql_catalog(
     catalog_name: str,
     uri: str,
@@ -84,6 +124,8 @@ def get_sql_catalog(
         **_get_fileio_config(credentials),
         **(properties or {}),
     )
+
+
 
 
 # def ensure_pyiceberg_local_path(location: str) -> str:

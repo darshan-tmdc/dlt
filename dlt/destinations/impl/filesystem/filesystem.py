@@ -843,15 +843,19 @@ class FilesystemClient(
         if table_format != "iceberg":
             raise OpenTableCatalogNotSupported(table_format, "filesystem")
 
-        from dlt.common.libs.pyiceberg import get_sql_catalog, IcebergCatalog
+        from dlt.common.libs.pyiceberg import get_sql_catalog, get_rest_catalog, IcebergCatalog
 
         # create in-memory catalog
-        catalog: IcebergCatalog = get_sql_catalog(
-            catalog_name or "default", "sqlite:///:memory:", self.config.credentials
+        # catalog: IcebergCatalog = get_sql_catalog(
+        #     catalog_name or "default", "sqlite:///:memory:", self.config.credentials
+        # )
+        # create rest-catalog
+        catalog: IcebergCatalog = get_rest_catalog(
+            self.config.credentials
         )
 
         # create namespace
-        catalog.create_namespace(self.dataset_name)
+        catalog.create_namespace_if_not_exists(self.dataset_name)
 
         return catalog
 

@@ -36,15 +36,19 @@ except ImportError:
 SCHEMA_ENGINE_VERSION = 11
 
 # dlt tables
-VERSION_TABLE_NAME = "_dlt_version"
-LOADS_TABLE_NAME = "_dlt_loads"
-PIPELINE_STATE_TABLE_NAME = "_dlt_pipeline_state"
-DLT_NAME_PREFIX = "_dlt"
+VERSION_TABLE_NAME = "_nilus_version"
+LOADS_TABLE_NAME = "_nilus_loads"
+PIPELINE_STATE_TABLE_NAME = "_nilus_pipeline_state"
+DLT_NAME_PREFIX = "_nilus"
 
 # default dlt columns
-C_DLT_ID = "_dlt_id"
+C_DLT_ID = "_nilus_id"
 """unique id of current row"""
-C_DLT_LOAD_ID = "_dlt_load_id"
+C_DLT_LOAD_ID = "_nilus_load_id"
+
+DLT_VALID_FROM = "_nilus_valid_from"
+DLT_VALID_TO = "_nilus_valid_to"
+
 """load id to identify records loaded in a single load package"""
 
 TColumnProp = Literal[
@@ -229,7 +233,7 @@ WRITE_DISPOSITIONS: Set[TWriteDisposition] = set(get_args(TWriteDisposition))
 MERGE_STRATEGIES: Set[TLoaderMergeStrategy] = set(get_args(TLoaderMergeStrategy))
 REPLACE_STRATEGIES: Set[TLoaderReplaceStrategy] = set(get_args(TLoaderReplaceStrategy))
 
-DEFAULT_VALIDITY_COLUMN_NAMES = ["_dlt_valid_from", "_dlt_valid_to"]
+DEFAULT_VALIDITY_COLUMN_NAMES = [DLT_VALID_FROM, DLT_VALID_TO]
 """Default values for validity column names used in `scd2` merge strategy."""
 
 

@@ -51,11 +51,11 @@ from dlt.common.validation import validate_dict
 
 class DataItemNormalizer(DataItemNormalizerBase[RelationalNormalizerConfig]):
     # known normalizer props
-    C_DLT_ROOT_ID = "_dlt_root_id"
+    C_DLT_ROOT_ID = "_nilus_root_id"
     """unique id of top level parent"""
-    C_DLT_PARENT_ID = "_dlt_parent_id"
+    C_DLT_PARENT_ID = "_nilus_parent_id"
     """unique id of parent row"""
-    C_DLT_LIST_IDX = "_dlt_list_idx"
+    C_DLT_LIST_IDX = "_nilus_list_idx"
     """position in the list of rows"""
     C_VALUE = "value"
     """for lists of simple types"""

@@ -13,7 +13,8 @@ from dlt.common.schema.typing import TWriteDisposition
 from dlt.common.utils import assert_min_pkg_version
 from dlt.common.exceptions import MissingDependencyException
 from dlt.common.storages.configuration import FileSystemCredentials, FilesystemConfiguration
-from dlt.common.configuration.specs import CredentialsConfiguration, AwsCredentials, AnyAzureCredentials
+from dlt.common.configuration.specs import CredentialsConfiguration, AwsCredentials, AnyAzureCredentials, AzureCredentialsWithoutDefaults
+
 from dlt.common.configuration.specs.mixins import WithPyicebergConfig
 
 from dlt.destinations.impl.filesystem.filesystem import FilesystemClient
@@ -84,15 +85,15 @@ def get_rest_catalog(credentials: FileSystemCredentials) -> IcebergCatalog:
                 "s3.connect-timeout": session_credentials.get("s3.connect-timeout", 300),
             }
         )
-    elif isinstance(credentials, AnyAzureCredentials):
+    elif isinstance(credentials, AzureCredentialsWithoutDefaults):
         session_credentials = credentials.to_pyiceberg_fileio_config()
         return load_catalog(
             name="lakehouse_catalog",
             **{
                 "uri": os.environ.get("METASTORE_URL"),
                 "py-io-impl": "pyiceberg.io.fsspec.FsspecFileIO",
-                "adls.connection-string": session_credentials["adls.connection-string"],
-                "adls.account-name": session_credentials["adlfs.account-name"],
+                "adls.connection-string": session_credentials.get("adls.connection-string"),
+                "adls.account-name": session_credentials["adls.account-name"],
                 "adls.account-key": session_credentials["adls.account-key"]
             }
         )

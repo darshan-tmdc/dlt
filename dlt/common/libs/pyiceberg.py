@@ -14,7 +14,8 @@ from dlt.common.schema.typing import TWriteDisposition
 from dlt.common.utils import assert_min_pkg_version
 from dlt.common.exceptions import MissingDependencyException
 from dlt.common.storages.configuration import FileSystemCredentials, FilesystemConfiguration
-from dlt.common.configuration.specs import CredentialsConfiguration, AwsCredentials, AnyAzureCredentials, AzureCredentialsWithoutDefaults
+from dlt.common.configuration.specs import CredentialsConfiguration, AwsCredentials, AnyAzureCredentials, AzureCredentialsWithoutDefaults, GcpServiceAccountCredentials
+from dlt.common.pendulum import pendulum
 
 from dlt.common.configuration.specs.mixins import WithPyicebergConfig
 
@@ -34,6 +35,29 @@ except ModuleNotFoundError:
         "Install `pyiceberg` so dlt can create Iceberg tables in the `filesystem` destination.",
     )
 
+
+import google.auth
+from google.auth.transport.requests import Request
+
+
+def get_access_token(service_account_file, scopes):
+    """
+    Retrieves an access token from Google Cloud Platform using service account credentials.
+
+    Args:
+        service_account_file: Path to the service account JSON key file.
+        scopes: List of OAuth scopes required for your application.
+
+    Returns:
+        The access token as a string.
+    """
+
+    credentials, name = google.auth.load_credentials_from_file(
+        service_account_file, scopes=scopes)
+
+    request = Request()
+    credentials.refresh(request)  # Forces token refresh if needed
+    return credentials
 
 def ensure_iceberg_compatible_arrow_schema(schema: pa.Schema) -> pa.Schema:
     ARROW_TO_ICEBERG_COMPATIBLE_ARROW_TYPE_MAP = {
@@ -99,7 +123,24 @@ def get_rest_catalog(credentials: FileSystemCredentials) -> IcebergCatalog:
             }
         )
 
-    # Additional support for other providers (GCS)
+    elif isinstance(credentials, GcpServiceAccountCredentials):
+        # GCS_JSON_KEY_FILE_PATH get this env var for service account file
+        service_account_file = os.environ.get("GCS_JSON_KEY_FILE_PATH", None)
+        if service_account_file is None:
+            raise Exception("GCS_JSON_KEY_FILE_PATH env var is not set, cannot create GCS Catalog")
+        if not credentials.get("scopes"):
+            credentials.scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+        token = get_access_token(service_account_file, credentials.scopes)
+        return load_catalog(
+            name="lakehouse_catalog",
+            **{
+                "uri": os.environ.get("METASTORE_URL"),
+                "py-io-impl": "pyiceberg.io.fsspec.FsspecFileIO",
+                "gcs.project-id": credentials.get("project_id"),
+                "gcs.oauth2.token": token,
+                "gcs.oauth2.token-expires-at": (pendulum.now().timestamp() + (5 * 60)) * 1000, # 5 minutes
+            }
+        )
     else:
         raise ValueError("Unsupported or unknown credentials type.")
 

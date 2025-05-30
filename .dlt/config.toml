@@ -1,0 +1,7 @@
+[default]
+restore_from_destination = true
+
+[destination.credentials]
+host = "http://localhost:9200"
+username = "elastic"
+password = "changeme"

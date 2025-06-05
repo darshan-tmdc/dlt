@@ -9,13 +9,24 @@ from dlt.common.utils import digest128
 
 @configspec
 class ElasticsearchCredentials(CredentialsConfiguration):
-    host: str = "http://localhost:9200"
+    host: str = "localhost"
+    port: int = 9200
+    protocol: str = "http"
     username: str = None
     password: str = None
     verify_certs: bool = True
 
     def __str__(self) -> str:
-        return self.host
+        """Return connection string in format: elasticsearch://[username:***@]host[:port]"""
+        conn_str = "elasticsearch://"
+        if self.username:
+            conn_str += self.username
+            if self.password:
+                conn_str += ":***"  # Mask password for security
+            conn_str += "@"
+        conn_str += f"{self.host}:{self.port}"
+
+        return conn_str
 
 
 @configspec

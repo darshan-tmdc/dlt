@@ -65,7 +65,9 @@ class ElasticsearchClient(JobClientBase, WithStateSync):
         auth = None
         if self.config.credentials.username:
             auth = (self.config.credentials.username, self.config.credentials.password)
-        self.es = Elasticsearch(self.config.credentials.host, basic_auth=auth)
+
+        url = f"{self.config.credentials.protocol}://{self.config.credentials.host}:{self.config.credentials.port}"
+        self.es = Elasticsearch(url, basic_auth=auth)
 
     def close(self) -> None:
         if self.es:

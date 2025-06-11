@@ -308,9 +308,6 @@ class ElasticsearchClient(JobClientBase, WithStateSync):
                         )
                         print(f"Schema with hash {self.schema.stored_version_hash} stored in Elasticsearch")
 
-                        # Register schema in pipeline state
-                        if self.schema.name not in self.schema.schema_names:
-                            self.schema.schema_names.append(self.schema.name)
                     except Exception as e:
                         print(f"Error storing schema in Elasticsearch: {str(e)}")
                         return False
@@ -575,6 +572,42 @@ class ElasticsearchClient(JobClientBase, WithStateSync):
             print(f"Error retrieving state from Elasticsearch: {str(e)}")
             return None
 
+    def _update_index_mappings(self, table_name: str, new_mappings: dict) -> None:
+        """Update the mappings for an existing index.
+
+        Args:
+            table_name: Name of the table/index to update
+            new_mappings: New mappings to apply
+        """
+        index = self._index_name(table_name)
+        if not self.es.indices.exists(index=index):
+            return
+
+        try:
+            # Get current mappings
+            current_mappings = self.es.indices.get_mapping(index=index)[index]['mappings']
+            current_properties = current_mappings.get('properties', {})
+
+            # Only add new fields, preserve existing field types
+            new_properties = {}
+            for field, mapping in new_mappings.get('properties', {}).items():
+                if field not in current_properties:
+                    new_properties[field] = mapping
+
+            if new_properties:
+                # Update the mappings with only new fields
+                self.es.indices.put_mapping(
+                    index=index,
+                    body={'properties': new_properties}
+                )
+                print(f"Added new fields to index {index}: {list(new_properties.keys())}")
+            else:
+                print(f"No new fields to add to index {index}")
+
+        except Exception as e:
+            print(f"Error updating mappings for index {index}: {str(e)}")
+            raise
+
     def update_stored_schema(
         self,
         only_tables: Iterable[str] = None,
@@ -599,6 +632,22 @@ class ElasticsearchClient(JobClientBase, WithStateSync):
         schema_info = self.get_stored_schema_by_hash(self.schema.stored_version_hash)
         if schema_info is not None:
             print(f"Schema with hash {self.schema.stored_version_hash} already exists in storage")
+            # Even if schema exists, we should update mappings for new fields
+            for table_name, table in self.schema.tables.items():
+                if only_tables and table_name not in only_tables:
+                    continue
+                    
+                # Create mappings for the table
+                mappings = {
+                    "properties": {}
+                }
+                
+                # Add table-specific fields
+                for field, field_type in table["columns"].items():
+                    mappings["properties"][field] = self._get_elasticsearch_type(field_type)
+                
+                # Update the index mappings
+                self._update_index_mappings(table_name, mappings)
             return expected_update
 
         # Store the schema
@@ -620,9 +669,22 @@ class ElasticsearchClient(JobClientBase, WithStateSync):
             )
             print(f"Schema with hash {self.schema.stored_version_hash} stored in Elasticsearch")
 
-            # Ensure the schema is registered in the pipeline state
-            if hasattr(self, 'schema') and self.schema.name not in self.schema.schema_names:
-                self.schema.schema_names.append(self.schema.name)
+            # Update mappings for all tables in the schema
+            for table_name, table in self.schema.tables.items():
+                if only_tables and table_name not in only_tables:
+                    continue
+                    
+                # Create mappings for the table
+                mappings = {
+                    "properties": {}
+                }
+                
+                # Add table-specific fields
+                for field, field_type in table["columns"].items():
+                    mappings["properties"][field] = self._get_elasticsearch_type(field_type)
+                
+                # Update the index mappings
+                self._update_index_mappings(table_name, mappings)
 
         except Exception as e:
             print(f"Error storing schema: {str(e)}")
